@@ -1,4 +1,5 @@
 import pandas as pd
+from pandas.errors import EmptyDataError, FileNotFoundError
 
 def bayesian_survival(prior, sensitivity, specificity):
     """
@@ -132,7 +133,17 @@ class BayesCalculator:
 
 def read_data(filepath):
     """Read CSV data for batch processing"""
-    df = pd.read_csv(filepath)
+    try:
+        df = pd.read_csv(filepath)
+        if df.empty:
+            print(f"Warning: CSV file {filepath} is empty")
+            return pd.DataFrame(columns=['prior', 'sensitivity', 'specificity'])
+    except EmptyDataError:
+        print(f"Warning: CSV file {filepath} has no data")
+        return pd.DataFrame(columns=['prior', 'sensitivity', 'specificity'])
+    except FileNotFoundError:
+        raise FileNotFoundError(f"CSV file not found: {filepath}")
+    
     expected_cols = {'prior', 'sensitivity', 'specificity'}
     if not expected_cols.issubset(df.columns):
         raise ValueError(f"CSV must contain columns: {expected_cols}, found {df.columns.tolist()}")
@@ -181,11 +192,19 @@ def save_results(df, save_path):
 def load_data(filepath, strict=False, save_results_flag=False, save_path=None):
     """Load and process data from CSV"""
     df = read_data(filepath)
+    if df.empty:
+        print("Warning: No data to process")
+        return []
+    
     df = clean_data(df, strict=strict)
+    if df.empty:
+        print("Warning: No valid rows remaining after cleaning")
+        return []
+    
     df = add_posterior_column(df)
 
     if save_results_flag:
-        if save_path is None:
+        if save_path is None: 
             raise ValueError("save_path must be provided if save_results_flag=True")
         save_results(df, save_path)
 
